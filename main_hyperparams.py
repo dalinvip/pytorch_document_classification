@@ -100,8 +100,10 @@ def load_IMDB(text_field, label_field, train_path, test_path, **kargs):
 
 # create Iterator
 def create_Iterator_2(train_data, test_data, batch_size, **kargs):
+    # train_iter, test_iter = data.Iterator.splits((train_data, test_data),
+    #                                              batch_sizes=(batch_size, len(test_data)), **kargs)
     train_iter, test_iter = data.Iterator.splits((train_data, test_data),
-                                                 batch_sizes=(batch_size, len(test_data)), **kargs)
+                                                 batch_sizes=(batch_size, batch_size), **kargs)
     return train_iter, test_iter
 
 

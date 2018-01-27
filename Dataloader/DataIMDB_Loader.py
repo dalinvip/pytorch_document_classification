@@ -67,7 +67,10 @@ class DataIMDB(data.Dataset):
             examples = []
             with open(path, encoding="utf-8") as f:
                 a, b = 0, 0
-                for line in f:
+                now_line = 0
+                for line in f.readlines():
+                    now_line += 1
+                    sys.stdout.write("\rhandling with the {} line.".format(now_line))
                     label, seq, sentence = line.partition(" ")
                     # clear string in every sentence
                     sentence = clean_str(sentence)
@@ -77,7 +80,7 @@ class DataIMDB(data.Dataset):
                     elif label == '1':
                         b += 1
                         examples += [data.Example.fromlist([sentence, 'positive'], fields=fields)]
-                print("negative sentence a {}, positive sentence b {} ".format(a, b))
+                print("\nnegative sentence a {}, positive sentence b {} ".format(a, b))
         super(DataIMDB, self).__init__(examples, fields, **kwargs)
 
     @classmethod
