@@ -1,0 +1,3 @@
+# pytorch-document_classification  --- Dataset : IMDB
+- The dataset can download from [here](http://ai.stanford.edu/%7Eamaas/data/sentiment/aclImdb_v1.tar.gz).
+- But the downloaded file is be spilited many file，So, the file is processed by me, I merge the train and test file , furthermore,  the emotional polarity is marked. The script for process file from [here](https://github.com/bamtercelboo/pytorch_word2vec_process/blob/master/script_for_document_classification/handle_imdb_dataset.py).

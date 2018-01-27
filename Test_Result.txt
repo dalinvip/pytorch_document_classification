@@ -1,0 +1,42 @@
+
+model snapshot\2018-01-27_15-01-31\snapshot_steps100.pt
+Evaluation - loss: 8.086882  acc: 55.0000%(22/40) 
+model_count 100 
+
+The Current Best Test Result is : 55.0
+
+
+model snapshot\2018-01-27_15-01-31\snapshot_steps200.pt
+Evaluation - loss: 8.240298  acc: 62.5000%(25/40) 
+model_count 200 
+
+The Current Best Test Result is : 62.5
+
+
+model snapshot\2018-01-27_15-01-31\snapshot_steps300.pt
+Evaluation - loss: 8.271600  acc: 62.5000%(25/40) 
+model_count 300 
+
+The Current Best Test Result is : 62.5
+
+
+model snapshot\2018-01-27_15-01-31\snapshot_steps400.pt
+Evaluation - loss: 8.297249  acc: 57.5000%(23/40) 
+model_count 400 
+
+The Current Best Test Result is : 62.5
+
+
+model snapshot\2018-01-27_15-01-31\snapshot_steps500.pt
+Evaluation - loss: 8.313754  acc: 57.5000%(23/40) 
+model_count 500 
+
+The Current Best Test Result is : 62.5
+
+
+model snapshot\2018-01-27_15-01-31\snapshot_steps600.pt
+Evaluation - loss: 8.334006  acc: 60.0000%(24/40) 
+model_count 600 
+
+The Current Best Test Result is : 62.5
+
