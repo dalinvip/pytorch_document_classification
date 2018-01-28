@@ -20,17 +20,14 @@ class Hyperparams():
     def __init__(self):
         # Datasets
         # IMDB
-        self.IMDB = True
-        self.train_path = "./Data/IMDB_debug/imdb_trainall_1.txt"
-        self.dev_path = None
-        self.test_path = "./Data/IMDB_debug/imdb_testall_1.txt"
-        self.CV = False
-        # self.train_path = "./Data/MR/rt-polarity.all"
-        # self.train_path = "./Data/MPQA/mpqa.all"
-        # self.train_path = "./Data/CR/custrev.all"
-        # self.train_path = "./Data/Subj/subj.all"
+        self.IMDB = False
+        # self.train_path = "./Data/IMDB_debug/imdb_trainall_1.txt"
         # self.dev_path = None
-        # self.test_path = None
+        # self.test_path = "./Data/IMDB_debug/imdb_testall_1.txt"
+        self.CV = True
+        self.train_path = "./Data/RT2k/rt2k_all.txt"
+        self.dev_path = None
+        self.test_path = None
 
         self.shuffle = True
         self.epochs_shuffle = True

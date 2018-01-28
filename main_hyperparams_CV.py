@@ -17,6 +17,8 @@ import datetime
 import torch
 import torchtext.data as data
 from Dataloader.DataIMDB_Loader import *
+from Dataloader.DataRT2k_Loader import *
+from Dataloader.Load_Pretrained_Embed import *
 from Dataloader.Load_Pretrained_Embed import *
 import train_ALL_CNN
 import train_CV
@@ -43,12 +45,10 @@ parser = argparse.ArgumentParser(description="Text Classification for sentence l
 parser.add_argument('-train_path', type=str, default=hyperparams.train_path, help='train data path')
 parser.add_argument('-dev_path', type=str, default=hyperparams.dev_path, help='dev data path')
 parser.add_argument('-test_path', type=str, default=hyperparams.test_path, help='test data path')
+parser.add_argument('-nfold', type=int, default=hyperparams.nfold, help='cv')
 # shuffle data
 parser.add_argument('-shuffle', action='store_true', default=hyperparams.shuffle, help='shuffle the data when load data' )
 parser.add_argument('-epochs_shuffle', action='store_true', default=hyperparams.epochs_shuffle, help='shuffle the data every epoch' )
-# Datasets
-parser.add_argument('-IMDB', action='store_true', default=hyperparams.IMDB, help='Dataset')
-parser.add_argument('-CV', action='store_true', default=hyperparams.CV, help='Dataset')
 # model params
 parser.add_argument("-SumPooling", action='store_true', default=hyperparams.SumPooling, help="SumPooling model")
 parser.add_argument('-embed_dim', type=int, default=hyperparams.embed_dim, help='embedding dim')
@@ -81,36 +81,46 @@ parser.add_argument("-num_threads", type=int, default=hyperparams.num_threads, h
 # option
 args = parser.parse_args()
 
+assert args.test_interval == args.dev_interval
+# assert args.CV is False, "Not CrossFold Dataset, Please Run main_hyperparams.py"
 
-def load_IMDB(text_field, label_field, train_path, test_path, **kargs):
-    train_data, test_data = DataIMDB.splits(train_path, test_path, text_field, label_field,
-                                            shuffle=args.shuffle)
+
+def load_data(text_field, label_field, path_file, **kargs):
+    train_data, test_data = DataCV.splits(path_file, text_field, label_field, shuffle=args.shuffle)
     print("len(train_data) {} ".format(len(train_data)))
     print("len(test_data) {} ".format(len(test_data)))
     # print("all word")
     # text_field.build_vocab(train_data.text, min_freq=args.min_freq)
     text_field.build_vocab(train_data.text, test_data.text, min_freq=args.min_freq)
     label_field.build_vocab(train_data.label, test_data.label)
-    train_iter, test_iter = create_Iterator_2(train_data, test_data, batch_size=args.batch_size, **kargs)
+    train_iter, test_iter = create_Iterator(train_data, test_data, batch_size=args.batch_size, **kargs)
     return train_iter, test_iter
 
 
 # create Iterator
-def create_Iterator_2(train_data, test_data, batch_size, **kargs):
-    # train_iter, test_iter = data.Iterator.splits((train_data, test_data),
-    #                                              batch_sizes=(batch_size, len(test_data)), **kargs)
+def create_Iterator(train_data, test_data, batch_size, **kargs):
     train_iter, test_iter = data.Iterator.splits((train_data, test_data),
-                                                 batch_sizes=(batch_size, batch_size), **kargs)
+                                                 batch_sizes=(batch_size, len(test_data)), **kargs)
     return train_iter, test_iter
 
 
-# create Iterator
-def create_Iterator(train_data, dev_data, test_data, batch_size, **kargs):
-    train_iter, dev_iter, test_iter = data.Iterator.splits(
-        (train_data, dev_data, test_data),
-        batch_sizes=(batch_size, len(dev_data), len(test_data)), **kargs)
-    print("train_iter length {}".format(len(test_iter)))
-    return train_iter, dev_iter, test_iter
+# cross CV
+def cv_spilit_file(path, nfold, test_id):
+    assert (nfold > 1) and (test_id >= 0) and (test_id < nfold)
+    print("CV file......")
+    if os.path.exists("./temp_train.txt"):
+        os.remove("./temp_train.txt")
+    if os.path.exists("./temp_test.txt"):
+        os.remove("./temp_test.txt")
+    file_train = open("./temp_train.txt", "w", encoding="utf-8")
+    file_test = open("./temp_test.txt", "w", encoding="utf-8")
+    with open(path, encoding="utf-8") as f:
+        lines = f.readlines()
+        for i, line in enumerate(lines):
+            # print(i, line)
+            file_train.writelines(line) if i % nfold != test_id else file_test.writelines(line)
+    file_train.close()
+    file_test.close()
 
 
 def show_params():
@@ -125,6 +135,34 @@ def show_params():
     file.close()
     shutil.copy("./Parameters.txt", args.save_dir)
     shutil.copy("./hyperparams.py", args.save_dir)
+
+
+def calculate_result(id):
+    resultlist = []
+    if os.path.exists("./Test_Result.txt"):
+        file = open("./Test_Result.txt")
+        for line in file.readlines():
+            if line[:10] == "Evaluation":
+                resultlist.append(float(line[34:41]))
+        result = sorted(resultlist)
+        file.close()
+        file = open("./Test_Result.txt", "a")
+        file.write("\nThe Best Result is : " + str(result[len(result) - 1]))
+        file.write("\n")
+        file.close()
+        shutil.copy("./Test_Result.txt", "./snapshot/" + args.mulu)
+        shutil.copy("./Test_Result.txt", "./Temp_Test_Result/Test_Result_" + str(id) + ".txt")
+    best_result = result[len(result) - 1]
+    return best_result
+
+
+# calculate the all cv means
+def cal_mean(list):
+    sum = 0
+    for i in list:
+        sum += i
+    avg = sum / len(list)
+    return avg
 
 
 def cal_result():
@@ -144,8 +182,6 @@ def cal_result():
 
 
 def main():
-    assert args.test_interval == args.dev_interval
-    assert args.CV is False, "CrossFold Dataset, Please Run main_hyperparams_CV.py"
     # if args.use_cuda is True:
         # use deterministic algorithm for cnn
         # torch.backends.cudnn.deterministic = True
@@ -156,49 +192,65 @@ def main():
     if not os.path.isdir(args.save_dir):
         os.makedirs(args.save_dir)
 
-    # build vocab and iterator
-    text_field = data.Field(lower=True)
-    label_field = data.Field(sequential=False)
-    if args.IMDB is True:
-        print("loading IMDB dataset......")
-        train_iter, test_iter = load_IMDB(text_field, label_field, train_path=args.train_path,
-                                          test_path=args.test_path, device=args.gpu_device, repeat=False,
-                                          shuffle=args.epochs_shuffle, sort=False,)
+    Temp_Test_Result = "./Temp_Test_Result"
+    if os.path.exists(Temp_Test_Result):
+        shutil.rmtree(Temp_Test_Result)
+    if not os.path.isdir(Temp_Test_Result):
+        os.makedirs(Temp_Test_Result)
 
-    args.embed_num = len(text_field.vocab)
-    args.class_num = len(label_field.vocab) - 1
-    args.PaddingID = text_field.vocab.stoi[text_field.pad_token]
-    print("embed_num : {}, class_num : {}".format(args.embed_num, args.class_num))
-    print("PaddingID {}".format(args.PaddingID))
-    # pretrained word embedding
-    if args.word_Embedding:
-        pretrain_embed = load_pretrained_emb_zeros(path=args.word_Embedding_Path,
-                                                   text_field_words_dict=text_field.vocab.itos,
-                                                   pad=text_field.pad_token)
-        calculate_oov(path=args.word_Embedding_Path, text_field_words_dict=text_field.vocab.itos,
-                      pad=text_field.pad_token)
-        args.pretrained_weight = pretrain_embed
+    cv_result = []
+    # CV loop start
+    for id in range(args.nfold):
+        print("\nthe {} CV file".format(id))
+        # build vocab and iterator
+        text_field = data.Field(lower=True)
+        label_field = data.Field(sequential=False)
+        cv_spilit_file(args.train_path, args.nfold, test_id=id)
+        train_iter, test_iter = load_data(text_field, label_field, path_file=args.train_path, device=args.gpu_device,
+                                          repeat=False, shuffle=args.epochs_shuffle, sort=False)
+        args.embed_num = len(text_field.vocab)
+        args.class_num = len(label_field.vocab) - 1
+        args.PaddingID = text_field.vocab.stoi[text_field.pad_token]
+        print("embed_num : {}, class_num : {}".format(args.embed_num, args.class_num))
+        print("PaddingID {}".format(args.PaddingID))
+        # pretrained word embedding
+        if args.word_Embedding:
+            pretrain_embed = load_pretrained_emb_zeros(path=args.word_Embedding_Path,
+                                                       text_field_words_dict=text_field.vocab.itos,
+                                                       pad=text_field.pad_token)
+            calculate_oov(path=args.word_Embedding_Path, text_field_words_dict=text_field.vocab.itos,
+                          pad=text_field.pad_token)
+            args.pretrained_weight = pretrain_embed
 
-    # print params
-    show_params()
+        # print params
+        show_params()
 
-    # load model and start train
-    if args.SumPooling is True:
-        print("loading SumPooling model.....")
-        model = model_SumPooling.SumPooling(args)
-        shutil.copy("./models/model_SumPooling.py", args.save_dir)
-        print(model)
-        if args.use_cuda is True:
-            print("using cuda......")
-            model = model.cuda()
-        print("CNN training start......")
-        if os.path.exists("./Test_Result.txt"):
-            os.remove("./Test_Result.txt")
-        if args.IMDB is True:
+        # load model and start train
+        if args.SumPooling is True:
+            print("loading SumPooling model.....")
+            model = model_SumPooling.SumPooling(args)
+            shutil.copy("./models/model_SumPooling.py", args.save_dir)
+            print(model)
+            if args.use_cuda is True:
+                print("using cuda......")
+                model = model.cuda()
+            print("CNN training start......")
+            if os.path.exists("./Test_Result.txt"):
+                os.remove("./Test_Result.txt")
             model_count = train_CV.train(train_iter, test_iter, model, args)
+        cv_result.append(calculate_result(id=id))
 
-    # calculate the best result
-    cal_result()
+    print(cv_result)
+    cv_mean = cal_mean(cv_result)
+    print("The best result is {:.6f} ".format(cv_mean))
+    file = open("./Temp_Test_Result/Final_Result.txt", "a")
+    for index, value in enumerate(cv_result):
+        stra = str(index + 1) + "   " + str(value)
+        file.write(stra)
+        file.write("\n")
+    file.write("mean_value  " + str(cv_mean))
+    file.close()
+    shutil.copytree("./Temp_Test_Result/", "./snapshot/" + mulu + "/Temp_Test_Result")
 
 
 if __name__ == "__main__":
